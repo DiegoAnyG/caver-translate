@@ -107,9 +107,21 @@ Editing it needs no Python: to drop a pose, delete its lines; to use a different
 number. State N is profile point N, counting from the mouth of the tunnel -- verified against real
 trajectories, where 68 discs give exactly 68 states.
 
-It also marks where the route starts and ends, labels each pose with its disc, distance and energy,
-and redraws the tunnel as a mesh, since a solid surface hides the ligand inside it. `--extra N`
-adds context poses between the three that matter.
+It also clears the way so the route can be seen: only the tunnel this trajectory goes through,
+drawn as a mesh rather than a solid surface; the receptor faded to 80 % transparent with its waters
+removed; the other tunnels switched off but still loaded (`enable tun_cl_*` brings them back).
+
+Each pose carries the two numbers a figure is read for -- how far it is from the active site and
+what the energy is there -- and the barrier says what it is:
+
+```
+entrance       13.0 A from site   -5.4 kcal/mol
+HARDEST STEP   11.0 A from site   -3.2 kcal/mol
+deepest point   4.5 A from site   -6.9 kcal/mol
+active site     0.0 A from site   -6.4 kcal/mol
+```
+
+`--extra N` adds context poses between them; `--receptor-object ""` leaves the protein alone.
 
 ## As a library
 

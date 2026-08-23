@@ -40,7 +40,11 @@ def main(argv=None) -> int:
     ap.add_argument("results", help="a CaverDock *_results.zip")
     ap.add_argument("--object", help="the trajectory's name in the loaded PyMOL session")
     ap.add_argument("--session", help="a pymol .pml to look the name up in, by hash")
-    ap.add_argument("--tunnel-object", default="", help="the tunnel to redraw as a mesh, e.g. tun_cl_3")
+    ap.add_argument("--tunnel-object", default="",
+                    help="the tunnel to show, as a mesh; the others are switched off, e.g. tun_cl_3")
+    ap.add_argument("--receptor-object", default="structure",
+                    help="the protein to fade to 80%% transparent and strip of waters "
+                         "(default: %(default)s; empty to leave it alone)")
     ap.add_argument("--extra", type=int, default=0, metavar="N",
                     help="context poses between the three that matter (default: none)")
     ap.add_argument("--no-labels", action="store_true", help="no text beside each pose")
@@ -77,7 +81,8 @@ def main(argv=None) -> int:
         bound = "last" if job.direction == "in" else "first"
 
     text = script(obj, job.profile, bound=bound, tunnel_obj=args.tunnel_object,
-                  extra=args.extra, labels=not args.no_labels)
+                  receptor_obj=args.receptor_object, extra=args.extra,
+                  labels=not args.no_labels)
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
         print(f"Written to {args.out}. In PyMOL, with the session already loaded:  @{args.out}")
