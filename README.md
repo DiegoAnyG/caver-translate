@@ -60,6 +60,40 @@ Each of these was met in real data before it was written down.
 Missing and duplicated combinations are listed too. A gap is a result: it says a calculation was
 attempted and did not come back.
 
+## Figures: the pose worth showing
+
+A trajectory is one pose per disc -- sixty-eight of them for a thirteen angstrom tunnel. Taking
+five at even spacing is easy and says nothing, because the pose a figure exists to show is the one
+at the top of the energy profile, and even spacing lands on it by luck.
+
+```bash
+caver-pymol CaverWEB/8HTB/met3in4ywxjawqzf_results.zip     --session CaverWEB/8HTB/pymol_qyj16v/pymol_8HTB_renombrado.pml     --tunnel-object tun_cl_3 -o poses.pml
+```
+
+Then in PyMOL, with the session already loaded: `@poses.pml`.
+
+The object name is looked up by hash. CaverWeb loads the trajectory as `ligand_<hash>.pdbqt` and
+the archive is named after the same hash, so renaming the objects to something readable does not
+break the link.
+
+What comes out is a plain script with the states already resolved and the reason beside each:
+
+```
+# highest energy on the profile: the obstacle | disc 8, 1.5 A, -0.50 kcal/mol
+create snap_2_barrier, MethylEsterT3In, 9, 1
+show sticks, snap_2_barrier
+color cyan, snap_2_barrier and elem C
+pseudoatom pose_label_2, selection=(snap_2_barrier), label="barrier - disc 8, 1.5 A, -0.50 kcal/mol"
+```
+
+Editing it needs no Python: to drop a pose, delete its lines; to use a different one, change the
+number. State N is profile point N, counting from the mouth of the tunnel -- verified against real
+trajectories, where 68 discs give exactly 68 states.
+
+It also marks where the route starts and ends, labels each pose with its disc, distance and energy,
+and redraws the tunnel as a mesh, since a solid surface hides the ligand inside it. `--extra N`
+adds context poses between the three that matter.
+
 ## As a library
 
 ```python

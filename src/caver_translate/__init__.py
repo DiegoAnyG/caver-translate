@@ -11,6 +11,7 @@ the things that mislead those numbers marked on the rows they affect.
 """
 from .metrics import Metrics, coverage, evaluate      # noqa: F401
 from .parse import Job, Point, Tunnel, parse_job, parse_tunnels, scan   # noqa: F401
+from .figures import choose_states, script, write_script                  # noqa: F401
 from .report import rows, tunnel_rows, write_csv, write_html            # noqa: F401
 
 try:
@@ -21,4 +22,5 @@ except Exception:                                     # a source tree with nothi
     __version__ = "0.1.0"
 
 __all__ = ["scan", "rows", "evaluate", "coverage", "write_csv", "write_html",
-           "Job", "Point", "Tunnel", "Metrics", "parse_job", "parse_tunnels", "tunnel_rows"]
+           "Job", "Point", "Tunnel", "Metrics", "parse_job", "parse_tunnels", "tunnel_rows",
+           "choose_states", "script", "write_script"]

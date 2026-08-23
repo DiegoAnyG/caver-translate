@@ -27,6 +27,7 @@ Homepage = "https://github.com/DiegoAnyG/caver-translate"
 
 [project.scripts]
 caver-translate = "caver_translate.cli:main"
+caver-pymol = "caver_translate.cli_pymol:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
