@@ -133,6 +133,13 @@ for r in rows(tunnels, jobs):
     print(r["receptor"], r["ligand"], r["tunnel"], r["Ea"], r["flags"])
 ```
 
+## The file formats
+
+Everything verified about what CaverWeb produces -- the folder, the archives, which end of the
+profile is the binding site, and the four things that mislead the numbers -- is in
+[docs/FORMATS.md](docs/FORMATS.md). It was checked against real downloads, and where the upstream
+documentation disagreed with the files, the files won.
+
 ## What this is not
 
 It does not run CAVER or CaverDock — it reads what they produced. And the energies it tabulates
