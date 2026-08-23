@@ -67,7 +67,9 @@ five at even spacing is easy and says nothing, because the pose a figure exists 
 at the top of the energy profile, and even spacing lands on it by luck.
 
 ```bash
-caver-pymol CaverWEB/8HTB/met3in4ywxjawqzf_results.zip     --session CaverWEB/8HTB/pymol_qyj16v/pymol_8HTB_renombrado.pml     --tunnel-object tun_cl_3 -o poses.pml
+caver-pymol CaverWEB/8HTB/met3in4ywxjawqzf_results.zip \
+    --session CaverWEB/8HTB/pymol_qyj16v/pymol_8HTB_renombrado.pml \
+    --tunnel-object tun_cl_3 -o poses.pml
 ```
 
 Then in PyMOL, with the session already loaded: `@poses.pml`.
