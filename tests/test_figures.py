@@ -96,3 +96,25 @@ def test_start_and_end_markers_are_placed():
     text = script("Obj", ENTERING)
     assert "route_start" in text and "route_end" in text
     assert "show spheres, route_start route_end" in text
+
+
+def test_the_script_is_seven_bit_ascii():
+    """PyMOL read a middle dot in a label as latin-1 and printed mojibake. Same lesson as any
+    other file handed to a tool whose encoding you do not control: do not send it characters."""
+    text = script("MethylEsterT3In", ENTERING, tunnel_obj="tun_cl_3")
+    text.encode("ascii")
+
+
+def test_it_says_what_is_missing_before_failing_thirty_times():
+    """Run without the session and every line fails on its own, each describing a symptom."""
+    text = script("AcidT3In", ENTERING, tunnel_obj="tun_cl_3")
+    assert "cmd.get_object_list()" in text
+    assert "session that is not loaded" in text
+    guard = text[:text.index("delete snap_")]
+    assert "AcidT3In" in guard and "tun_cl_3" in guard, "the check must name what it needs"
+
+
+def test_the_guard_survives_having_no_tunnel_object():
+    text = script("AcidT3In", ENTERING)
+    assert "_missing" in text
+    text.encode("ascii")

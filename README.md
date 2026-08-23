@@ -72,7 +72,22 @@ caver-pymol CaverWEB/8HTB/met3in4ywxjawqzf_results.zip \
     --tunnel-object tun_cl_3 -o poses.pml
 ```
 
-Then in PyMOL, with the session already loaded: `@poses.pml`.
+### Using it
+
+The script draws poses **into a session that is already open**. On its own it has nothing to draw
+on, so load the CaverWeb session first, from the folder that holds `data/`:
+
+```
+cd C:/.../CaverWEB/8HTB/pymol_qyj16v
+@pymol_8HTB_renombrado.pml
+@poses/met3in4ywxjawqzf.pml
+```
+
+That `cd` matters: the session script starts with `cd data`, so PyMOL has to be standing in the
+folder above it. Run it from anywhere else and the structure and the tunnels never load.
+
+If the session is not there, the script says so once and names what is missing, instead of failing
+on every line.
 
 The object name is looked up by hash. CaverWeb loads the trajectory as `ligand_<hash>.pdbqt` and
 the archive is named after the same hash, so renaming the objects to something readable does not

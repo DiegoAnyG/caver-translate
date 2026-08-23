@@ -92,6 +92,24 @@ def script(obj: str, profile, bound: str = "last", tunnel_obj: str = "", extra: 
         "# Colours, in order of appearance: " + ", ".join(PALETTE[:len(states)]),
         "# ---------------------------------------------------------------------------",
         "",
+        "# Does the session this needs actually exist? Without it every line below fails on its",
+        "# own and the screen fills with errors that each describe a symptom, never the cause.",
+        "python",
+        "from pymol import cmd",
+        f"_needed = [n for n in ({obj!r},{(repr(tunnel_obj) + ',') if tunnel_obj else ''}) if n]",
+        "_missing = [n for n in _needed if n not in cmd.get_object_list()]",
+        "if _missing:",
+        "    print('')",
+        "    print('  This script draws poses from a session that is not loaded.')",
+        "    print('  Missing: ' + ', '.join(_missing))",
+        "    print('')",
+        "    print('  Load the CaverWeb session first, from the folder that contains data/:')",
+        "    print('     cd /path/to/pymol_<jobid>')",
+        "    print('     @pymol.pml            (or your renamed copy)')",
+        "    print('  then run this script again.')",
+        "    print('')",
+        "python end",
+        "",
         f"delete {prefix}_*",
         "delete pose_label_*",
         "delete route_start",
@@ -120,7 +138,7 @@ def script(obj: str, profile, bound: str = "last", tunnel_obj: str = "", extra: 
             f"color {colour}, {name} and elem C",
         ]
         if labels:
-            text = f"{tag} · {reason.split('| ')[-1]}"
+            text = f"{tag}: {reason.split(chr(124) + chr(32))[-1]}"
             L.append(f'pseudoatom pose_label_{i + 1}, selection=({name}), label="{text}"')
         L.append("")
 
