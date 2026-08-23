@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "caver-translate"
+version = "0.1.0"
+description = "Turn a CaverWeb download of hash-named archives into a table you can read."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Diego Cesar Anaya Guerrero", email = "diego.anayagro@gmail.com" }]
+keywords = ["caver", "caverdock", "caverweb", "ligand transport", "tunnels", "cheminformatics"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+]
+# No dependencies, on purpose. Everything it needs -- zipfile, json, csv, and SVG written by hand --
+# is in the standard library, so it installs anywhere and can be vendored into another project
+# without dragging a plotting stack behind it.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/DiegoAnyG/caver-translate"
+
+[project.scripts]
+caver-translate = "caver_translate.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
