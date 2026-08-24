@@ -121,6 +121,18 @@ def script(obj: str, profile, bound: str = "last", tunnel_obj: str = "",
         "    print('     cd /path/to/pymol_<jobid>')",
         "    print('     @pymol.pml            (or your renamed copy)')",
         "    print('  then run this script again.')",
+        "    print('  The session script ends inside data/, so call this one by its full path.')",
+        "    print('')",
+        # Running the session script twice appends: every object ends up with two copies of its
+        # states, memory doubles, and PyMOL starts refusing to do things for reasons that name no
+        # cause. The state count is the one place that says so plainly.
+        f"_states = cmd.count_states({obj!r}) if {obj!r} in cmd.get_object_list() else 0",
+        f"if _states > {len(profile)}:",
+        "    print('')",
+        "    print('  WARNING: " + obj + " has ' + str(_states) + ' states; the profile has "
+        + str(len(profile)) + ".')",
+        "    print('  The session script was run more than once. PyMOL appends states, it does')",
+        "    print('  not replace them. Quit PyMOL, start it again, and load the session once.')",
         "    print('')",
         "python end",
         "",

@@ -60,6 +60,35 @@ Each of these was met in real data before it was written down.
 Missing and duplicated combinations are listed too. A gap is a result: it says a calculation was
 attempted and did not come back.
 
+### Which route a compound takes
+
+The ranking above answers "what is the easiest thing in this dataset". The question actually being
+asked is usually narrower: *this* compound, which tunnel does it use, and *this* tunnel, which
+compounds get through it. The page carries both, as the same routes grouped two ways.
+
+A route is one receptor, one compound and one tunnel, with entering and leaving side by side --
+they are two calculations of the same route, and split across a ranking the same tunnel turns up
+twice and gets compared with itself.
+
+How to read a row:
+
+- **`Ea`** is what entering costs. Near zero is a way in; a high one is a real obstacle. It is the
+  metric that compares tunnels, because it is the one that says which offers least resistance.
+- **`dE_BS`** is how much better the site is than the surface. Very negative means the ligand is
+  far more likely inside than out, so binding is stronger in the site.
+- **`E_surface`** is the energy at the mouth, and it is what decides whether `dE_BS` can be read at
+  all. A positive mouth means the ligand already clashes on arrival, and subtracting a positive
+  number makes `dE_BS` look excellent when nothing favourable was measured. Rows like that are
+  marked `positive_surface` and their `dE_BS` is printed as *mouth clashes*.
+- **Length** belongs beside `Ea`. A tunnel with nothing to cross costs nothing to cross, which is
+  why a one angstrom "tunnel" tops a ranking without meaning anything. Those are marked
+  `short_tunnel`.
+
+No verdict column, and no score combining the four numbers into one. Where the cut between "enters
+easily" and "has an obstacle" falls is a decision about the chemistry, and it is not the tool's to
+make: the ranking, the numbers and the marks are on the page, and the reading is yours.
+
+
 ## Figures: the pose worth showing
 
 A trajectory is one pose per disc -- sixty-eight of them for a thirteen angstrom tunnel. Taking
@@ -68,9 +97,76 @@ at the top of the energy profile, and even spacing lands on it by luck.
 
 ```bash
 caver-pymol CaverWEB/8HTB/met3in4ywxjawqzf_results.zip \
-    --session CaverWEB/8HTB/pymol_qyj16v/pymol_8HTB_renombrado.pml \
-    --tunnel-object tun_cl_3 -o poses.pml
+    --session CaverWEB/8HTB/pymol_qyj16v/pymol_8HTB_renombrado.pml -o poses.pml
 ```
+
+### Choosing which ones
+
+Run it with **no arguments** and it asks. Everything on the menus is read off the disk, so there is
+nothing to configure and nothing that can go stale:
+
+```
+$ cd CaverWEB
+$ caver-pymol
+
+Results folders:
+    1   3SQY
+    2   4D44
+    3   8HTB
+  > 3
+
+PyMOL session to take the object names from:
+    1   pymol_qyj16v/pymol.pml
+    2   pymol_qyj16v/pymol_8HTB_renombrado.pml
+  > 2
+
+Tunnel:
+    1   tunnel 1   (10 trajectories)
+    2   tunnel 2   (10 trajectories)
+    3   tunnel 3   (10 trajectories)
+  > (Enter for all) 3
+
+Compound:
+    1   benzo   (6 trajectories)
+    2   et      (6 trajectories)
+  ...
+  > (Enter for all) 1
+
+Direction:
+    i   in    -- towards the active site
+    o   out   -- away from it
+  > (Enter for all) i
+
+1 of 30 trajectories. The same run without the questions:
+  caver-pymol benzo3inuh6v4fpkxc_results.zip --session .../pymol_8HTB_renombrado.pml -o .../poses
+benzo3inuh6v4fpkxc_results.zip  ->  @C:/.../8HTB/poses/benzo3inuh6v4fpkxc.pml
+```
+
+Enter on any question takes everything it lists, so tunnel 3 and Enter for the compound is the same
+tunnel across all five, in one run. The last line is the command that would have done it without
+the questions, printed so that the second time can skip them.
+
+### Choosing them without the questions
+
+The archive names already say the compound, the tunnel and the direction
+(`benzo3inuh6v4fpkxc_results.zip` is the acid, tunnel 3, entering), so the shell already knows how
+to select them and there is no set of flags to learn. Name as many archives as you like, or a
+folder, and give `-o` a folder to write into:
+
+```bash
+cd CaverWEB/8HTB
+S=pymol_qyj16v/pymol_8HTB_renombrado.pml
+
+caver-pymol *3in*_results*.zip   --session $S -o poses/   # one tunnel, every compound
+caver-pymol benzo*_results*.zip  --session $S -o poses/   # one compound, every tunnel
+caver-pymol *out*_results*.zip   --session $S -o poses/   # everything leaving
+caver-pymol .                    --session $S -o poses/   # the lot
+```
+
+One `.pml` per archive, named after it. The tunnel is read from the archive name, so
+`--tunnel-object` is only needed to override it (`--tunnel-object ''` draws no tunnel at all). The
+object name is looked up by hash, which is what makes a whole folder possible: none of the thirty
+names has to be typed.
 
 ### Using it
 
@@ -80,18 +176,23 @@ on, so load the CaverWeb session first, from the folder that holds `data/`:
 ```
 cd C:/.../CaverWEB/8HTB/pymol_qyj16v
 @pymol_8HTB_renombrado.pml
-@poses/met3in4ywxjawqzf.pml
+@C:/.../CaverWEB/8HTB/pymol_qyj16v/poses/met3in4ywxjawqzf.pml
 ```
 
-That `cd` matters: the session script starts with `cd data`, so PyMOL has to be standing in the
-folder above it. Run it from anywhere else and the structure and the tunnels never load.
+That first `cd` matters: the session script starts with `cd data`, so PyMOL has to be standing in
+the folder above it. Run it from anywhere else and the structure and the tunnels never load.
+
+The full path on the third line matters for the same reason, backwards: the session script ends
+inside `data/` and never comes back, so a relative `@poses/...` is looked for in `data/poses/` and
+is not found. `caver-pymol` prints the absolute path for each script it writes; paste that.
+
+Load the session **once**. PyMOL appends states, it does not replace them, so a second
+`@pymol_....pml` leaves every object holding two copies of itself: memory runs out, undo switches
+itself off, and the object panel starts throwing errors that name no cause. The generated script
+counts the states it finds against the profile and says so if this has happened.
 
 If the session is not there, the script says so once and names what is missing, instead of failing
 on every line.
-
-The object name is looked up by hash. CaverWeb loads the trajectory as `ligand_<hash>.pdbqt` and
-the archive is named after the same hash, so renaming the objects to something readable does not
-break the link.
 
 What comes out is a plain script with the states already resolved and the reason beside each:
 

@@ -59,6 +59,40 @@ def rows(tunnels, jobs) -> list:
     return out
 
 
+def by_route(records) -> list:
+    """One row per receptor, ligand and tunnel, with the two directions side by side.
+
+    A route is the thing being chosen between, and it was calculated twice: entering and leaving.
+    Read one direction at a time and the same tunnel appears in two places in the ranking, which
+    is the one comparison nobody wants to make.
+
+    E_surface and dE_BS are taken from the entering run when there is one. They describe the two
+    ends of the route and both runs measure the same two ends, so the pair only differs by the
+    noise of two separate dockings.
+    """
+    routes = {}
+    for r in records:
+        if r["tunnel"] is None:
+            continue
+        key = (r["receptor"], str(r["ligand"]), r["tunnel"])
+        route = routes.setdefault(key, {
+            "receptor": r["receptor"], "ligand": str(r["ligand"]), "tunnel": r["tunnel"],
+            "ea_in": None, "ea_out": None, "dE_BS": None, "E_surface": None,
+            "length": r["tunnel_length_A"], "neck": r["bottleneck_radius_A"], "flags": set(),
+        })
+        route["ea_in" if r["direction"] == "in" else "ea_out"] = r["Ea"]
+        if r["direction"] == "in" or route["E_surface"] is None:
+            route["dE_BS"], route["E_surface"] = r["dE_BS"], r["E_surface"]
+        route["flags"].update(r["flags"].split() if r["flags"] else [])
+    return list(routes.values())
+
+
+def _easiest_first(routes) -> list:
+    """Least resistance first, with the routes that were never calculated entering at the end."""
+    return sorted(routes, key=lambda r: (r["ea_in"] is None, r["ea_in"] if r["ea_in"] is not None
+                                         else (r["ea_out"] if r["ea_out"] is not None else 0.0)))
+
+
 def tunnel_rows(tunnels) -> list:
     return [{"receptor": t.receptor, "tunnel": t.tunnel,
              "bottleneck_radius": t.bottleneck_radius, "length": t.length,
@@ -120,6 +154,36 @@ def _num(value) -> str:
     return "" if value is None else "%.2f" % value
 
 
+def _route_table(routes, group, ranked_by, headers) -> str:
+    """The routes grouped one way and ranked within each group, as html lines.
+
+    The group's own columns are printed once and left blank on the rows below, so that what varies
+    down the table is the ranking and not the two things being held fixed.
+    """
+    out = ["<table><tr><th>%s</th><th>%s</th><th>%s</th><th>Ea in</th><th>Ea out</th>"
+           "<th>dE_BS</th><th>E_surface</th><th>Length A</th><th>Neck A</th><th>Notes</th></tr>"
+           % tuple(html.escape(h) for h in headers)]
+    keyed = {}
+    for r in routes:
+        keyed.setdefault(tuple(r[g] for g in group), []).append(r)
+    for key in sorted(keyed, key=lambda k: tuple(str(part) for part in k)):
+        for i, r in enumerate(_easiest_first(keyed[key])):
+            head = ["", ""] if i else [html.escape(str(part)) for part in key]
+            # dE_BS says nothing when the mouth is a clash, so it is not printed as though it did.
+            bs = _num(r["dE_BS"])
+            if "positive_surface" in r["flags"]:
+                bs = '<span class="flag">%s (mouth clashes)</span>' % bs
+            notes = ('<span class="flag">%s</span>' % html.escape(" / ".join(sorted(r["flags"])))
+                     if r["flags"] else "")
+            out.append("<tr><td>%s</td><td>%s</td><td>%s</td><td><strong>%s</strong></td>"
+                       "<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+                       % (head[0], head[1], html.escape(str(r[ranked_by])),
+                          _num(r["ea_in"]), _num(r["ea_out"]), bs, _num(r["E_surface"]),
+                          _num(r["length"]), _num(r["neck"]), notes))
+    out.append("</table>")
+    return out
+
+
 def write_html(path, tunnels, jobs) -> Path:
     records = rows(tunnels, jobs)
     by_source = {j.source: j for j in jobs}
@@ -164,6 +228,26 @@ def write_html(path, tunnels, jobs) -> Path:
                _num(r["tunnel_length_A"]), _num(r["bottleneck_radius_A"]),
                spark(job.profile) if job else ""))
     out.append("</table>")
+
+    routes = by_route(records)
+
+    out.append("<h2>Which tunnel each compound prefers</h2>")
+    out.append('<p class="sub">Every route one compound has, least resistance first. '
+               "<code>Ea</code> is what entering costs, so a low one is a way in and a high one is "
+               "a real obstacle. <code>dE_BS</code> says how much better the site is than the "
+               "surface, and it is only worth reading once <code>E_surface</code> is negative: a "
+               "positive mouth means the ligand already clashes there, and subtracting a positive "
+               "number makes the binding look excellent when nothing was measured. Read "
+               "<code>Ea</code> beside the length as well; a tunnel with nothing to cross has "
+               "nothing to cost.</p>")
+    out += _route_table(routes, ("receptor", "ligand"), "tunnel",
+                        ["Receptor", "Compound", "Tunnel"])
+
+    out.append("<h2>Which compounds prefer each tunnel</h2>")
+    out.append('<p class="sub">The same routes, read the other way: one tunnel and the compounds '
+               "that get through it most easily.</p>")
+    out += _route_table(routes, ("receptor", "tunnel"), "ligand",
+                        ["Receptor", "Tunnel", "Compound"])
 
     used = sorted({f for r in records for f in (r["flags"].split() if r["flags"] else [])})
     if used:
