@@ -6,3 +6,9 @@ dist/
 .pytest_cache/
 caver_report/
 report/
+
+# codebase-memory-mcp index (local, rebuildable)
+.codebase-memory/
+
+# CaverDock images: half a gigabyte, downloaded not committed
+*.sif

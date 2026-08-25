@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# CaverDock, without having to remember the invocation.
+#
+#   caverdock-run <receptor> <ligand> <tunnel> <output dir> [in|out] [lb|ub]
+#
+# Runs cd-analysis inside the official CaverDock 1.2 Apptainer image: it prepares the receptor and
+# the ligand with MGLTools if they are not already pdbqt, discretises the tunnel, runs CaverDock
+# under MPI, and resolves the energy profile.
+#
+# Why cd-analysis and not caverdock directly: it is what CaverWeb runs, and it writes the
+# <name>-lb.dat / <name>-ub.dat profiles. Those are sound. cd-screening's own profile.dat is not --
+# it clips the lower bound at the free-docking energy, which flattens the barrier and nothing else.
+#
+# The inputs are copied into the output directory and the run happens there, so a finished run is
+# self-contained: what went in sits beside what came out.
+#
+#   caver-translate <output dir> -o report/     turns it into a table
+#
+# Two things are passed that cd-analysis does not do by default, both measured here:
+#
+#   --skip-tunnel-extension  cd-analysis extends the tunnel with
+#                            `tunnel = tunnel.extend(...)`, and extend() returns *only* the new
+#                            discs -- so the tunnel is thrown away and the ligand is docked through
+#                            the two-angstrom straight extension alone. Ten discs of constant
+#                            radius instead of sixty-eight, and it finishes in seconds, which is
+#                            the only sign anything went wrong. cd-screening writes
+#                            `tunnel + tunnel.extend(...)` and is not affected.
+#                            Skipping the extension gives the whole discretised tunnel, which is
+#                            also what CaverWeb docks through.
+#
+#   --threads 2              CaverDock needs at least two MPI processes for a tunnel, and warns
+#                            that more than two makes the seed meaningless. Two is therefore both
+#                            the minimum and the only reproducible choice. Raise it with
+#                            CAVERDOCK_CPUS when speed matters more than repeating a number.
+#
+# Environment:
+#   CAVERDOCK_SIF   the image (default: the one beside this script)
+#   CAVERDOCK_SEED  the docking seed (default: 42 -- fixed so a rerun repeats)
+#   CAVERDOCK_EXH   exhaustiveness (default: 1, which is what CaverWeb uses)
+#   CAVERDOCK_CPUS  MPI processes (default: 2 -- see above)
+set -euo pipefail
+
+# readlink -f, because this is normally reached through a symlink on PATH: without it dirname
+# gives the symlink's folder and the image is looked for beside the link.
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+ROOT="$(dirname "$SELF")"
+
+# The image is found rather than assumed, so this works wherever it was put. CAVERDOCK_SIF wins;
+# otherwise the first caverdock image beside the script, one level up from it, or in the current
+# directory. No path here belongs to any particular machine.
+find_sif() {
+    local d
+    for d in "$ROOT" "$ROOT/.." "$PWD"; do
+        local hit
+        hit="$(find "$d" -maxdepth 1 -name 'caverdock*.sif' -print -quit 2>/dev/null || true)"
+        [ -n "$hit" ] && { readlink -f "$hit"; return; }
+    done
+}
+SIF="${CAVERDOCK_SIF:-$(find_sif)}"
+SEED="${CAVERDOCK_SEED:-42}"
+EXH="${CAVERDOCK_EXH:-1}"
+CPUS="${CAVERDOCK_CPUS:-2}"
+
+usage() {
+    cat >&2 <<'TXT'
+usage: caverdock-run <receptor> <ligand> <tunnel> <output dir> [in|out] [lb|ub]
+
+  <receptor>    .pdb or .pdbqt. A .pdb is prepared with MGLTools.
+  <ligand>      .pdb, .mol2, .sdf or .pdbqt, one molecule.
+  <tunnel>      a CAVER tunnel cluster, out/data/clusters/tun_cl_NNN.pdb.
+                A .dsd is taken as already discretised.
+  <output dir>  created; the inputs are copied into it.
+
+  in            towards the active site (default: out, away from it)
+  ub            upper bound as well as lower. Slower -- minutes become tens of
+                minutes -- and the only way to know a barrier is not an artefact
+                of the lower bound passing through a discontinuity.
+
+Then:  caver-translate <output dir> -o report/
+TXT
+    exit 2
+}
+
+[ "$#" -ge 4 ] || usage
+
+RECEPTOR="$(readlink -f "$1")"
+LIGAND="$(readlink -f "$2")"
+TUNNEL="$(readlink -f "$3")"
+OUT="$4"
+DIRECTION="${5:-out}"
+BOUND="${6:-lb}"
+
+case "$DIRECTION" in
+    in)  CD_DIRECTION=IN ;;
+    out) CD_DIRECTION=OUT ;;
+    *)   echo "Direction is 'in' or 'out', not '$DIRECTION'." >&2; exit 2 ;;
+esac
+case "$BOUND" in
+    lb) CD_BOUND=LOWERBOUND ;;
+    ub) CD_BOUND=UPPERBOUND ;;
+    *)  echo "Bound is 'lb' or 'ub', not '$BOUND'." >&2; exit 2 ;;
+esac
+
+if ! command -v apptainer >/dev/null 2>&1; then
+    echo "No apptainer on PATH. The CaverDock binaries are not installed natively; the image is" >&2
+    echo "how it runs here." >&2
+    echo "  conda activate cribado" >&2
+    exit 1
+fi
+if [ -z "$SIF" ] || [ ! -f "$SIF" ]; then
+    echo "No CaverDock image found. Set CAVERDOCK_SIF, or put one beside this script:" >&2
+    echo "  curl -L -o '$ROOT/caverdock-1.2.sif' \\" >&2
+    echo "    https://loschmidt.chemi.muni.cz/static/releases/caverdock/1.2/caverdock-1.2.sif" >&2
+    exit 1
+fi
+for path in "$RECEPTOR" "$LIGAND" "$TUNNEL"; do
+    [ -f "$path" ] || { echo "Not found: $path" >&2; exit 1; }
+done
+if [ "$CPUS" -lt 2 ]; then
+    echo "CaverDock needs at least two MPI processes for a tunnel run. CAVERDOCK_CPUS=$CPUS." >&2
+    exit 1
+fi
+
+# Nothing inside a CaverDock output says what was calculated, so the folder name has to. This is
+# cd-screening's own convention, r<receptor>-l<ligand>-t<tunnel>-d<direction>-<bound> from the
+# input basenames, which caver-translate already reads. Point several runs at one <output dir> and
+# the whole grid comes out as one table, missing combinations included.
+stem() { basename "${1%.*}"; }
+RUN="r$(stem "$RECEPTOR")-l$(stem "$LIGAND")-t$(stem "$TUNNEL")-d$DIRECTION-${CD_BOUND,,}"
+OUT="$OUT/$RUN"
+
+mkdir -p "$OUT"
+OUT="$(readlink -f "$OUT")"
+cp -f "$RECEPTOR" "$LIGAND" "$TUNNEL" "$OUT/"
+
+echo "CaverDock $CD_BOUND $CD_DIRECTION  seed $SEED  exhaustiveness $EXH  $CPUS processes" >&2
+echo "  -> $OUT" >&2
+if [ "$CPUS" -gt 2 ]; then
+    echo "  note: more than two processes, so the seed no longer makes this repeatable." >&2
+fi
+
+apptainer exec --bind "$OUT":/work "$SIF" \
+    cd-analysis \
+        --receptor "/work/$(basename "$RECEPTOR")" \
+        --ligand   "/work/$(basename "$LIGAND")" \
+        --tunnel   "/work/$(basename "$TUNNEL")" \
+        --direction "$CD_DIRECTION" \
+        --trajectory-type "$CD_BOUND" \
+        --workdir /work \
+        --name analysis \
+        --threads "$CPUS" \
+        --seed "$SEED" \
+        --exhaustiveness "$EXH" \
+        --skip-tunnel-extension
+
+echo >&2
+echo "Done. Read it with:" >&2
+echo "  caver-translate '$(dirname "$OUT")' -o report/" >&2
