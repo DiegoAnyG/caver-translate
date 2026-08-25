@@ -224,6 +224,31 @@ active site     0.0 A from site   -6.4 kcal/mol
 
 `--extra N` adds context poses between them; `--receptor-object ""` leaves the protein alone.
 
+## Runs made on your own machine
+
+CaverDock does not write `results.json` — that is CaverWeb's own summary. Point it at what
+CaverDock did write and it reads that instead, whether the job was a bare `caverdock` run, one
+`cd-analysis`, or a `cd-screening` batch:
+
+```bash
+caver-translate screening_out/ -o report/
+```
+
+Two things it does rather than take the files as written, both because a real run showed why:
+
+- **Energies and radii come from the trajectory**, not from the profile `.dat`. They agree on a
+  `cd-analysis` result — all 68 discs of the reference job, exactly — but a `cd-screening`
+  `profile.dat` clips its lower bound at the free-docking energy, which flattens the barrier and
+  nothing else. On the run measured here that moved `E_max` from −2.0 to −3.2 and `Ea` from 2.6 to
+  1.4, and cd-screening's own `results.csv`, built from the same columns, reported a route with no
+  barrier and no binding. The calculation was fine; the summary of it was not.
+- **Distances are measured along the disc normal** when there is no `.dat` to take them from, which
+  is how CaverDock measures them. The plain centre-to-centre sum runs 3.5 % long.
+
+Upper bounds come from a `-ub.dat` and nowhere else. The upper-bound trajectory is the search
+rather than the result, and 59 of 68 discs disagree with the resolved profile; without the file the
+job is reported `lower_bound_only`. `cd-energyprofile -d tunnel.dsd -t out-ub.pdbqt` writes one.
+
 ## As a library
 
 ```python
@@ -236,8 +261,9 @@ for r in rows(tunnels, jobs):
 
 ## The file formats
 
-Everything verified about what CaverWeb produces -- the folder, the archives, which end of the
-profile is the binding site, and the four things that mislead the numbers -- is in
+Everything verified about what CaverWeb and CaverDock produce -- the folder, the archives, the
+files a local run leaves, which end of the profile is the binding site, and the four things that
+mislead the numbers -- is in
 [docs/FORMATS.md](docs/FORMATS.md). It was checked against real downloads, and where the upstream
 documentation disagreed with the files, the files won.
 

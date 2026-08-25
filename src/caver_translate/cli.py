@@ -1,9 +1,10 @@
-"""Point it at a CaverWeb download and get back something readable.
+"""Point it at CaverDock output and get back something readable.
 
     caver-translate <folder> -o out/
 
-Eighty archives named after hashes become two CSVs and one page. Nothing is modified in the folder
-it reads.
+A CaverWeb download -- eighty archives named after hashes -- or a run made on this machine, which
+CaverWeb's summary file never reaches. Either becomes two CSVs and one page. Nothing is modified in
+the folder it reads.
 """
 from __future__ import annotations
 
@@ -19,8 +20,9 @@ from .report import COLUMNS, TUNNEL_COLUMNS, rows, tunnel_rows, write_csv, write
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="caver-translate", description=__doc__.splitlines()[0])
-    ap.add_argument("folder", help="a CaverWeb download: one sub-folder per receptor, or a single "
-                                   "receptor's folder")
+    ap.add_argument("folder", help="a CaverWeb download (one sub-folder per receptor, or a single "
+                                   "receptor's folder), or a folder of CaverDock output produced "
+                                   "here")
     ap.add_argument("-o", "--out", default="caver_report", help="where to write (default: %(default)s)")
     ap.add_argument("--no-html", action="store_true", help="tables only")
     ap.add_argument("--version", action="version", version=__version__)
@@ -33,8 +35,10 @@ def main(argv=None) -> int:
 
     tunnels, jobs = scan(folder)
     if not jobs:
-        print(f"Nothing to read in {folder}: no *_results.zip found. A CaverWeb download has one "
-              "sub-folder per receptor, each holding the result archives.", file=sys.stderr)
+        print(f"Nothing to read in {folder}. Expected either a CaverWeb download -- one sub-folder "
+              "per receptor, each holding *_results.zip -- or CaverDock output produced here, "
+              "which is a folder with a *-lb.pdbqt trajectory or a profile .dat in it.",
+              file=sys.stderr)
         return 1
 
     out = Path(args.out)

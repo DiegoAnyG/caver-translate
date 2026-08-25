@@ -176,4 +176,7 @@ def scan(folder) -> tuple:
             tunnels.extend(parse_tunnels(summary))
         for zip_path in result_archives(root):
             jobs.extend(parse_job(zip_path))
+    if not jobs:                                      # not a download: CaverDock run here
+        from .local import local_jobs
+        jobs.extend(local_jobs(root))
     return tunnels, jobs
