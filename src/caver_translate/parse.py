@@ -63,6 +63,9 @@ class Job:
     source: str
     profile: list = field(default_factory=list)
     has_ub: bool = False
+    # The disc an upper bound could not get past, when CaverDock gave up on one.
+    # None means it was not asked for; a number means it was and the answer was no.
+    ub_failed_at: Optional[int] = None
     note: str = ""
 
     @property

@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Optional
 
 from .parse import JOB_NAME, Job, Point
 
@@ -136,6 +137,24 @@ def _nearest(folder: Path, pattern: str):
     return found[0] if found else None
 
 
+def failed_at(folder) -> Optional[int]:
+    """The disc where an upper bound gave up, if it did.
+
+    CaverDock writes ``<name>-failed.pdbqt`` when a trajectory cannot be completed: a single model,
+    at the disc it could not get past, with the log repeating ``TRAJECTORY: convergence ... FAILED
+    (for backtracking N)``. The ligand cannot cross there with its rotation constrained.
+
+    Without this the folder looks like a run that simply has no upper bound, which is what a run
+    that was never asked for one looks like. The two mean opposite things: one is a question not
+    put, the other is an answer of "it does not pass".
+    """
+    marker = _nearest(Path(folder), "*-failed.pdbqt")
+    if marker is None:
+        return None
+    steps = trajectory(marker)
+    return steps[-1][0] if steps else -1
+
+
 def _sources(folder: Path) -> tuple:
     """The lower-bound trajectory and the two profile files, wherever this run wrote them.
 
@@ -220,10 +239,18 @@ def parse_local_job(folder) -> Job:
             if point.disc in bounds:
                 point.energy_ub_min, point.energy_ub_max = bounds[point.disc]
     else:
-        notes.append("no upper-bound profile: run cd-energyprofile on the -ub trajectory to "
-                     "write one")
+        stopped = failed_at(folder)
+        if stopped is not None:
+            # Asked for and refused, which is a result -- not the same as never having asked.
+            notes.append(f"upper bound did not converge at disc {stopped}: with its rotation "
+                         "constrained the ligand does not get past that point")
+        else:
+            notes.append("no upper-bound profile: run cd-energyprofile on the -ub trajectory to "
+                         "write one")
     return Job(receptor=receptor, ligand=ligand, tunnel=tunnel, direction=direction, source=source,
-               profile=profile, has_ub=has_ub, note="; ".join(n for n in notes if n))
+               profile=profile, has_ub=has_ub,
+               ub_failed_at=None if has_ub else failed_at(folder),
+               note="; ".join(n for n in notes if n))
 
 
 def local_jobs(folder) -> list:

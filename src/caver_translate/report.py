@@ -26,6 +26,9 @@ FLAG_TEXT = {
                              "file name.",
     "lower_bound_only": "no upper-bound trajectory: the lower bound can pass through "
                         "discontinuities and understate a barrier.",
+    "upper_bound_failed": "the upper bound was calculated and did not converge: with its rotation "
+                          "constrained the ligand does not get past one of the discs. A result, "
+                          "not a gap.",
     "failed": "no profile in the archive. CaverWeb keeps no log for a failed combination.",
 }
 

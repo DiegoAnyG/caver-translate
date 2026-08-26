@@ -82,7 +82,11 @@ def evaluate(job, tunnel=None) -> Metrics:
         # Already clashing at the mouth. dE_BS then looks excellent for the wrong reason: it is
         # large because a positive number was subtracted, not because the site is favourable.
         flags.append("positive_surface")
-    if not job.has_ub:
+    if getattr(job, "ub_failed_at", None) is not None:
+        # An upper bound that was asked for and did not converge. That is the opposite result from
+        # one that was never asked for, and the same flag on both reads a refusal as a gap.
+        flags.append("upper_bound_failed")
+    elif not job.has_ub:
         flags.append("lower_bound_only")
     if tunnel is not None and tunnel.length < SHORT_TUNNEL_A:
         flags.append("short_tunnel")
